@@ -1,7 +1,23 @@
 <template>
   <el-card>
     <template #header>
-      <span>日报表</span>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span>日报表</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <el-date-picker
+            v-model="generateDate"
+            type="date"
+            placeholder="选择日期"
+            format="YYYY-MM-DD"
+            value-format="YYYY-MM-DD"
+            :disabled-date="disableFutureDate"
+            style="width: 160px;"
+          />
+          <el-button type="primary" :loading="generating" :disabled="!generateDate" @click="handleGenerate">
+            手动统计
+          </el-button>
+        </div>
+      </div>
     </template>
     <el-table :data="tableData" v-loading="loading" stripe border style="width: 100%">
       <el-table-column prop="report_date" label="日期" width="120" fixed />
@@ -47,7 +63,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getDailyReport } from '@/api/finance'
+import { getDailyReport, generateDailyReport } from '@/api/finance'
 import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
@@ -55,6 +71,29 @@ const tableData = ref([])
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+const generateDate = ref('')
+const generating = ref(false)
+
+function disableFutureDate(time) {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(0, 0, 0, 0)
+  return time.getTime() >= tomorrow.getTime()
+}
+
+async function handleGenerate() {
+  if (!generateDate.value) return
+  generating.value = true
+  try {
+    const res = await generateDailyReport(generateDate.value)
+    ElMessage.success(res.message || '统计任务已触发，请稍后刷新')
+    setTimeout(() => fetchData(), 3000)
+  } catch {
+    ElMessage.error('触发统计失败')
+  } finally {
+    generating.value = false
+  }
+}
 
 async function fetchData() {
   loading.value = true
